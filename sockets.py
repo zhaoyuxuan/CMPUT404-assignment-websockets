@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 import flask
-from flask import Flask, request
+from flask import Flask, request, url_for, redirect, jsonify, Response
 from flask_sockets import Sockets
 import gevent
 from gevent import queue
@@ -69,7 +69,7 @@ myWorld.add_set_listener( set_listener )
 @app.route('/')
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return redirect(url_for('static', filename='index.html'))
 
 def read_ws(ws,client):
     '''A greenlet function that reads from the websocket and updates the world'''
@@ -98,24 +98,36 @@ def flask_post_json():
 
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
-    '''update the entities via this interface'''
-    return None
+    request_data = request.get_json(force=True)
+
+    if request.method == "PUT":
+        for key in request_data:
+            myWorld.update(entity, key, request_data[key])
+            
+        response_data = myWorld.get(entity)
+        return jsonify(response_data)
+    else:
+        myWorld.set(entity, request_data)
+        return jsonify(success=True)
 
 @app.route("/world", methods=['POST','GET'])    
 def world():
     '''you should probably return the world here'''
-    return None
+    return jsonify(myWorld.world())
 
 @app.route("/entity/<entity>")    
 def get_entity(entity):
     '''This is the GET version of the entity interface, return a representation of the entity'''
-    return None
+    requested_entity = myWorld.get(entity)
+    '''This is the GET version of the entity interface, return a representation of the entity'''
+    return jsonify(requested_entity)
 
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
+    myWorld.clear()
     '''Clear the world out!'''
-    return None
+    return jsonify(myWorld.world())
 
 
 
