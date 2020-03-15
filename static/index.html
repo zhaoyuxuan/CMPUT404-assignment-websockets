@@ -6,7 +6,7 @@
     <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
-        Copyright 2013 Google, Abram Hindle
+        Copyright 2020 Yuxuan Zhao
         
         Licensed under the Apache License, Version 2.0 (the "License");
         you may not use this file except in compliance with the License.
@@ -122,9 +122,27 @@ function getPosition(e) {
 }
 
 function addEntity(entity, data) {
+    
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
+    var newData = {};
+    newData[entity] = data;
+    socket.send(JSON.stringify(newData));
+
+    fetch(`/entity/${entity}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newData)
+        })
+        .then((response) => {
+        return response.json();
+        })
+        .then((data) => {
+           return;
+        });
 }
 var counter = 0;
 function addEntityWithoutName(data) {
@@ -248,12 +266,27 @@ function update() {
     drawFrame();
 }
 
+function updateWorld(newWorld){
+    for (let entry in newWorld){
+        if (newWorld.hasOwnProperty(entry)) { 
+            world[entry] = newWorld[entry];
+        }
+    }
+    console.log(world);
+    drawNextFrame();
+}
 
 function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
     socket.onopen = function() {
-        //XXX: TODO What are you going to do here?
+        fetch('/world')
+            .then((response) => {
+                return response.json();
+            })
+            .then((data) => {
+                updateWorld(data);
+            });
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,6 +294,8 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
+            var newWorld = JSON.parse(msg.data);
+            updateWorld(newWorld);
             //XXX: TODO What are you going to do here?            
         } catch (e) {
             alert("socket on message: " + e);
